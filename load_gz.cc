@@ -23,7 +23,7 @@
 
 #include "zlib.h"
 
-#define INITIAL_ROWS 2
+#define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
 #define BUFFER_SIZE 800
@@ -34,16 +34,15 @@ public:
 
   load_gz (void)
     : octave_base_value (),
-      scalar (0),
-      gz_fid (NULL)
+      gz_fid (NULL),
+      empty_val (lo_ieee_na_value ()),
+      current_row_idx (0)
   { }
 
   load_gz (const std::string &fn)
     : octave_base_value (),
-      scalar (0),
       gz_fid (NULL),
       empty_val (lo_ieee_na_value ()),
-      current_col_idx (0),
       current_row_idx (0)
   {
     gz_fn = fn;
@@ -59,11 +58,11 @@ public:
   }
 
   load_gz (const load_gz& s)
-    : octave_base_value (), scalar (s.scalar) { }
+    : octave_base_value () { }
 
   ~load_gz (void)
   {
-    std::cout << "load_gz destructor" << std::endl;
+    //std::cout << "load_gz destructor" << std::endl;
     free (buf);
     if (gz_fid)
       gzclose (gz_fid);
@@ -110,10 +109,7 @@ private:
 
   double empty_val;                   // currently NA (FIXME: make it configurable)?
 
-  int scalar;
-
   Matrix mat;
-  octave_idx_type current_col_idx;
   octave_idx_type current_row_idx;
 
   char *buf;
@@ -147,9 +143,11 @@ private:
          * so bleibt sie im buffer
          */
 
+        octave_idx_type current_col_idx = 0;
         while (start < tail)
           {
-            //fprintf (stderr, "start = '%s'\n", start);
+            if (*start == '#')
+              while (*start++ != 0x0A);
 
             double d = strtod (start, &end);
 
@@ -171,7 +169,7 @@ private:
             start = end + 1;
 
             current_col_idx++;
-            if (*end == 0x0A || *end == 0x0D)
+            if (*end == 0x0A)
               {
                 //fprintf (stderr, "newline\n");
 
@@ -207,7 +205,6 @@ private:
 void load_gz::print (std::ostream& os, bool pr_as_read_syntax)
 {
   os << "class load_gz:\n";
-  os << "\n  scalar  = " << scalar;
   os << "\n  gz_fn   = '" << gz_fn.c_str () << "'";
   os << "\n  gz_fid  = " << gz_fid;
   os << "\n  rows  = " << rows();
@@ -227,8 +224,8 @@ Reads matrix from VAL.")
       load_gz::register_type ();
       interp.mlock ();
 
-      octave_stdout << "installing load_gz at type-id = "
-                    << load_gz::static_type_id () << "\n";
+      //octave_stdout << "installing load_gz at type-id = "
+      //              << load_gz::static_type_id () << "\n";
 
       octave::type_info& ti = interp.get_type_info ();
 
@@ -273,3 +270,19 @@ DEFUN_DLD (mget, args,,
 }
 
 DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
+
+/*
+%!test
+%! m = rand (1e6, 8);
+%! fn = tempname();
+%! save ("-z", "-ascii", fn, "m")
+%! tic
+%! ref = load (fn);
+%! toc
+%! tic
+%! x = load_gz (fn);
+%! m = mget (x);
+%! toc
+%! assert (m, ref);
+%! unlink (fn);
+*/

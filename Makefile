@@ -1,4 +1,4 @@
-.PHONY: all run style clean
+.PHONY: all check style clean
 
 TARGETS=load_gz.oct
 
@@ -7,8 +7,8 @@ all: $(TARGETS)
 load_gz.oct: load_gz.cc
 	mkoctfile $^
 
-run: all
-	octave --no-gui --eval 'autoload ("mget", which ("load_gz.oct")); x=load_gz("bar"), mget(x), x'
+check: load_gz.oct
+	octave --no-gui --eval 'autoload ("mget", which ("load_gz.oct")); test load_gz'
 
 style:
 	astyle --style=gnu -s2 -n *.cc
