@@ -49,11 +49,11 @@ public:
     gz_fid = gzopen (gz_fn.c_str (), "r");
     if (! gz_fid)
       error ("Opening '%s' failed", gz_fn.c_str ());
-    
+
     buf = head = (char *) malloc (BUFFER_SIZE);
     if (! buf)
       error ("malloc failed");
-    
+
     mat = Matrix (INITIAL_ROWS, 1, empty_val);
   }
 
@@ -68,13 +68,28 @@ public:
       gzclose (gz_fid);
   }
 
-  octave_base_value * clone (void) { return new load_gz (*this); }
+  octave_base_value * clone (void)
+  {
+    return new load_gz (*this);
+  }
 
-  int rows (void) const { return current_row_idx; }
-  int columns (void) const { return mat.columns (); }
+  int rows (void) const
+  {
+    return current_row_idx;
+  }
+  int columns (void) const
+  {
+    return mat.columns ();
+  }
 
-  bool is_constant (void) const { return true; }
-  bool is_defined (void) const { return true; }
+  bool is_constant (void) const
+  {
+    return true;
+  }
+  bool is_defined (void) const
+  {
+    return true;
+  }
 
   Matrix matrix_value (bool = false)
   {
@@ -91,11 +106,11 @@ private:
 
   std::string gz_fn;
   gzFile gz_fid;
-  
+
   double empty_val;                   // currently NA (FIXME: make it configurable)?
 
   int scalar;
-  
+
   Matrix mat;
   octave_idx_type current_row_idx;
 
@@ -119,11 +134,11 @@ private:
         /* Idee:
          * Parsen, bis ein Zeichen kommt, welches von strtod nicht interpretiert werden kann.
          * Somit kann ein Trennzeichen auch ein ";" oder "," sein
-         * 
+         *
          * buf fängt immer mit dem Anfang der Zeile an, wurde beim letzten Mal pollen dier Zeile nicht mit LF abgeschlossen,
          * so bleibt sie im buffer
          */
-        
+
         int c = 0;
         while (start < tail)
           {
@@ -136,7 +151,7 @@ private:
 
             // end == start kann z.B. Auftreten, wenn ungültige Zeichen
             // oder zwei "nicht whitespace" Trennzeichen, z.B. 5;;6
-            if (end != start) 
+            if (end != start)
               mat (current_row_idx, c) = d;
 
             start = end + 1;
@@ -157,16 +172,16 @@ private:
               }
 
           }
-          int chars_left = tail - head;
-          fprintf (stderr, "exit while, %i left\n", chars_left);
-          
-          // umkopieren
-          memmove (buf, head, chars_left);
-          head = buf + chars_left;
+        int chars_left = tail - head;
+        fprintf (stderr, "exit while, %i left\n", chars_left);
 
-        }
-      return bytes_read;
-    }
+        // umkopieren
+        memmove (buf, head, chars_left);
+        head = buf + chars_left;
+
+      }
+    return bytes_read;
+  }
 
   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
 };
@@ -182,7 +197,7 @@ void load_gz::print (std::ostream& os, bool pr_as_read_syntax)
   newline (os);
 }
 
-DEFMETHOD_DLD (load_gz, interp, args, ,
+DEFMETHOD_DLD (load_gz, interp, args,,
                "mat = load_gz (fn)\n\
 \n\
 Reads matrix from VAL.")
@@ -198,7 +213,7 @@ Reads matrix from VAL.")
                     << load_gz::static_type_id () << "\n";
 
       octave::type_info& ti = interp.get_type_info ();
-      
+
       type_loaded = true;
     }
 
@@ -217,7 +232,7 @@ Reads matrix from VAL.")
 }
 
 //autoload ("mget", which ("load_gz.oct"))
-DEFUN_DLD (mget, args, ,
+DEFUN_DLD (mget, args,,
            "mget (I)")
 {
   octave_value_list retval;
