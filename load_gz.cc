@@ -25,8 +25,8 @@
 
 #define INITIAL_ROWS 2
 #define GROWTH_FACTOR 1.5
-// has to be at least maximum rowlength in bytes
-#define BUFFER_SIZE 40
+// BUFFER_SIZE has to be at least the maximum rowlength in bytes
+#define BUFFER_SIZE 800
 
 class load_gz : public octave_base_value
 {
@@ -43,6 +43,7 @@ public:
       scalar (0),
       gz_fid (NULL),
       empty_val (lo_ieee_na_value ()),
+      current_col_idx (0),
       current_row_idx (0)
   {
     gz_fn = fn;
@@ -112,6 +113,7 @@ private:
   int scalar;
 
   Matrix mat;
+  octave_idx_type current_col_idx;
   octave_idx_type current_row_idx;
 
   char *buf;
@@ -120,13 +122,19 @@ private:
   int poll ()
   {
     int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
-    fprintf (stderr, "bytes_read = %i\n", bytes_read);
+    head[bytes_read] = 0;
+
+    //fprintf (stderr, "bytes_read = %i\n", bytes_read);
+    //fprintf (stderr, "buf after gzread = '%s'\n", buf);
+
+    //for (int k = 0; k < BUFFER_SIZE; ++k)
+    //  fprintf (stderr, "buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
+
     if (bytes_read > 0)
       {
-        buf[bytes_read] = 0;
         char *tail = head + bytes_read;
 
-        fprintf (stderr, "columns = %i\n", mat.columns());
+        //fprintf (stderr, "columns = %i\n", mat.columns());
 
         char *start = buf;
         char *end = buf;
@@ -139,46 +147,56 @@ private:
          * so bleibt sie im buffer
          */
 
-        int c = 0;
         while (start < tail)
           {
+            //fprintf (stderr, "start = '%s'\n", start);
+
             double d = strtod (start, &end);
 
-            fprintf (stderr, "d = %f, char at end is = 0x%X\n", d, *end);
+            //if (end == start)
+            //  fprintf (stderr, "ungültiges zeichen\n");
 
-            if (c >= mat.columns ())
-              mat.resize (mat.rows(), c + 1, empty_val);
+            //fprintf (stderr, "d = %f, char at end is = 0x%X\n", d, *end);
+
+            //fprintf (stderr, "c = %i, r = %i, d = %f, *end = 0x%X\n", current_col_idx, current_row_idx, d, *end);
+
+            if (current_col_idx >= mat.columns ())
+              mat.resize (mat.rows(), current_col_idx + 1, empty_val);
 
             // end == start kann z.B. Auftreten, wenn ungültige Zeichen
             // oder zwei "nicht whitespace" Trennzeichen, z.B. 5;;6
             if (end != start)
-              mat (current_row_idx, c) = d;
+              mat (current_row_idx, current_col_idx) = d;
 
             start = end + 1;
 
-            c++;
+            current_col_idx++;
             if (*end == 0x0A || *end == 0x0D)
               {
-                fprintf (stderr, "newline\n");
+                //fprintf (stderr, "newline\n");
 
                 current_row_idx++;
                 if (mat.rows () < current_row_idx + 1)
                   {
                     mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
-                    fprintf (stderr, "rows after resize = %i\n", mat.rows ());
+                    //fprintf (stderr, "rows after resize = %i\n", mat.rows ());
                   }
-                c = 0;
+                current_col_idx = 0;
                 head = start;
               }
 
           }
         int chars_left = tail - head;
-        fprintf (stderr, "exit while, %i left\n", chars_left);
+        //fprintf (stderr, "exit while, %i bytes left\n", chars_left);
 
-        // umkopieren
-        memmove (buf, head, chars_left);
+        //fprintf (stderr, "head before move = '%s'\n", head);
+
+        // umkopieren (mit trailing 0)
+        memmove (buf, head, chars_left + 1);
         head = buf + chars_left;
+        current_col_idx = 0;
 
+        //fprintf (stderr, "buf after move = '%s'\n", buf);
       }
     return bytes_read;
   }
