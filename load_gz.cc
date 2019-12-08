@@ -26,7 +26,7 @@
 #define INITIAL_ROWS 2
 #define GROWTH_FACTOR 1.5
 // has to be at least maximum rowlength in bytes
-#define BUFFER_SIZE 60
+#define BUFFER_SIZE 40
 
 class load_gz : public octave_base_value
 {
@@ -70,70 +70,15 @@ public:
 
   octave_base_value * clone (void) { return new load_gz (*this); }
 
-  int rows (void) const { return 3; }
-  int columns (void) const { return 4; }
+  int rows (void) const { return current_row_idx; }
+  int columns (void) const { return mat.columns (); }
 
   bool is_constant (void) const { return true; }
   bool is_defined (void) const { return true; }
 
   Matrix matrix_value (bool = false)
   {
-    int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
-    if (bytes_read > 0)
-      {
-      buf[bytes_read] = 0;
-      char *tail = head + bytes_read;
-
-      fprintf (stderr, "bytes_read = %i\n", bytes_read);
-      fprintf (stderr, "columns = %i\n", mat.columns());
-
-      char *start = buf;
-      char *end = buf;
-
-      /* Idee:
-       * Parsen, bis ein Zeichen kommt, welches von strtod nicht interpretiert werden kann.
-       * Somit kann ein Trennzeichen auch ein ";" oder "," sein
-       * 
-       * buf fängt immer mit dem Anfang der Zeile an, wurde beim letzten Mal pollen dier Zeile nicht mit LF abgeschlossen,
-       * so bleibt sie im buffer
-       */
-      
-      int c = 0;
-      while (start < tail)
-        {
-          double d = strtod (start, &end);
-
-          printf ("d = %f, char at end is = 0x%X\n", d, *end);
-
-          // kann z.B. Auftreten, wenn ungültige Zeichen
-          // oder zwei "nicht whitespace" Trennzeichen, z.B. 5;;6
-          // In Octave würde ich daraus NA machen
-          if (end == start) 
-            printf ("no conversion performed\n");
-          else
-            {
-              if (c >= mat.columns ())
-                mat.resize (mat.rows(), c + 1, empty_val);
-              mat (current_row_idx, c) = d;
-            }
-
-          c++;
-          if (*end == 0x0A || *end == 0x0D)
-            {
-              printf ("newline\n");
-
-              current_row_idx++;
-              if (mat.rows () < current_row_idx + 1)
-                {
-                  mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
-                  printf ("rows after resize = %i\n", mat.rows ());
-                }
-              c = 0;
-            }
-
-          start = end + 1;
-        }
-      }
+    while (poll ());
     if (current_row_idx > 0)
       return mat.extract (0, 0, current_row_idx - 1, mat.columns () - 1);
     else
@@ -156,6 +101,72 @@ private:
 
   char *buf;
   char *head;
+
+  int poll ()
+  {
+    int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
+    fprintf (stderr, "bytes_read = %i\n", bytes_read);
+    if (bytes_read > 0)
+      {
+        buf[bytes_read] = 0;
+        char *tail = head + bytes_read;
+
+        fprintf (stderr, "columns = %i\n", mat.columns());
+
+        char *start = buf;
+        char *end = buf;
+
+        /* Idee:
+         * Parsen, bis ein Zeichen kommt, welches von strtod nicht interpretiert werden kann.
+         * Somit kann ein Trennzeichen auch ein ";" oder "," sein
+         * 
+         * buf fängt immer mit dem Anfang der Zeile an, wurde beim letzten Mal pollen dier Zeile nicht mit LF abgeschlossen,
+         * so bleibt sie im buffer
+         */
+        
+        int c = 0;
+        while (start < tail)
+          {
+            double d = strtod (start, &end);
+
+            fprintf (stderr, "d = %f, char at end is = 0x%X\n", d, *end);
+
+            if (c >= mat.columns ())
+              mat.resize (mat.rows(), c + 1, empty_val);
+
+            // end == start kann z.B. Auftreten, wenn ungültige Zeichen
+            // oder zwei "nicht whitespace" Trennzeichen, z.B. 5;;6
+            if (end != start) 
+              mat (current_row_idx, c) = d;
+
+            start = end + 1;
+
+            c++;
+            if (*end == 0x0A || *end == 0x0D)
+              {
+                fprintf (stderr, "newline\n");
+
+                current_row_idx++;
+                if (mat.rows () < current_row_idx + 1)
+                  {
+                    mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
+                    fprintf (stderr, "rows after resize = %i\n", mat.rows ());
+                  }
+                c = 0;
+                head = start;
+              }
+
+          }
+          int chars_left = tail - head;
+          fprintf (stderr, "exit while, %i left\n", chars_left);
+          
+          // umkopieren
+          memmove (buf, head, chars_left);
+          head = buf + chars_left;
+
+        }
+      return bytes_read;
+    }
 
   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
 };
