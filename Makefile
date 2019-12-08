@@ -9,6 +9,7 @@ load_gz.oct: load_gz.cc
 
 check: load_gz.oct
 	octave --no-gui --eval 'autoload ("mget", which ("load_gz.oct")); test load_gz'
+	octave --no-gui benchmark_inc.m
 
 style:
 	astyle --style=gnu -s2 -n *.cc

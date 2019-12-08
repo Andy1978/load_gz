@@ -26,7 +26,7 @@
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
-#define BUFFER_SIZE 800
+#define BUFFER_SIZE 8000
 
 class load_gz : public octave_base_value
 {
@@ -94,6 +94,7 @@ public:
   Matrix matrix_value (bool = false)
   {
     while (poll ());
+
     if (current_row_idx > 0)
       return mat.extract (0, 0, current_row_idx - 1, mat.columns () - 1);
     else
@@ -117,6 +118,13 @@ private:
 
   int poll ()
   {
+    if (gzeof (gz_fid))
+      {
+        //fprintf (stderr, "reset EOF...\n");
+        gzclearerr (gz_fid);
+        return 0;
+      }
+
     int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
     head[bytes_read] = 0;
 
@@ -273,16 +281,12 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 
 /*
 %!test
-%! m = rand (1e6, 8);
+%! m = rand (5e5, 8);
 %! fn = tempname();
 %! save ("-z", "-ascii", fn, "m")
-%! tic
-%! ref = load (fn);
-%! toc
-%! tic
-%! x = load_gz (fn);
-%! m = mget (x);
-%! toc
+%! tic; ref = load (fn); t_load = toc()
+%! tic; x = load_gz (fn); m = mget (x); t_load_gz = toc()
+%! printf ("speed up is %.1f\n", t_load/t_load_gz);
 %! assert (m, ref);
 %! unlink (fn);
 */
