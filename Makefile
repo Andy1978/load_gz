@@ -15,4 +15,4 @@ style:
 	astyle --style=gnu -s2 -n *.cc
 
 clean:
-	rm -f *.o $(TARGETS)
+	rm -f *.o $(TARGETS) increasing_*.gz

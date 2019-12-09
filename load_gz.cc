@@ -8,9 +8,15 @@
 //#include <octave/mx-base.h>
 //#include <octave/str-vec.h>
 
+#include <octave/oct.h>
 #include <octave/defun-dld.h>
-#include <octave/errwarn.h>
-#include <octave/interpreter.h>
+//#include <octave/errwarn.h>
+#if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
+
+#else
+  #include <octave/interpreter.h>
+#endif
+
 //#include <octave/ops.h>
 #include <octave/ov-base.h>
 //#include <octave/ov-scalar.h>
@@ -57,12 +63,12 @@ public:
     mat = Matrix (INITIAL_ROWS, 1, empty_val);
   }
 
-  load_gz (const load_gz& s)
-    : octave_base_value () { }
+  //~ load_gz (const load_gz& s)
+    //~ : octave_base_value () { }
 
   ~load_gz (void)
   {
-    //std::cout << "load_gz destructor" << std::endl;
+    std::cout << "load_gz destructor" << std::endl;
     free (buf);
     if (gz_fid)
       gzclose (gz_fid);
@@ -70,6 +76,7 @@ public:
 
   octave_base_value * clone (void)
   {
+    std::cout << "load_gz clone" << std::endl;
     return new load_gz (*this);
   }
 
@@ -84,7 +91,7 @@ public:
 
   bool is_constant (void) const
   {
-    return true;
+    return false;
   }
   bool is_defined (void) const
   {
@@ -118,9 +125,10 @@ private:
 
   int poll ()
   {
+    fprintf (stderr, "gzeof (gz_fid) = %i\n", gzeof (gz_fid));
     if (gzeof (gz_fid))
       {
-        //fprintf (stderr, "reset EOF...\n");
+        fprintf (stderr, "reset EOF...\n");
         gzclearerr (gz_fid);
         return 0;
       }
@@ -128,7 +136,7 @@ private:
     int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
     head[bytes_read] = 0;
 
-    //fprintf (stderr, "bytes_read = %i\n", bytes_read);
+    fprintf (stderr, "bytes_read = %i\n", bytes_read);
     //fprintf (stderr, "buf after gzread = '%s'\n", buf);
 
     //for (int k = 0; k < BUFFER_SIZE; ++k)
@@ -220,22 +228,29 @@ void load_gz::print (std::ostream& os, bool pr_as_read_syntax)
   newline (os);
 }
 
+#if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
+DEFUN_DLD (load_gz, args, ,
+#else
 DEFMETHOD_DLD (load_gz, interp, args,,
+#endif
                "mat = load_gz (fn)\n\
 \n\
-Reads matrix from VAL.")
+Reads matrix from previously with load_gz opened file.")
 {
   static bool type_loaded = false;
 
   if (! type_loaded)
     {
       load_gz::register_type ();
+#if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
+      mlock ();
+#else
       interp.mlock ();
-
+#endif
       //octave_stdout << "installing load_gz at type-id = "
       //              << load_gz::static_type_id () << "\n";
 
-      octave::type_info& ti = interp.get_type_info ();
+      //octave::type_info& ti = interp.get_type_info ();
 
       type_loaded = true;
     }
@@ -272,7 +287,11 @@ DEFUN_DLD (mget, args,,
       retval.append (((load_gz&) rep) . matrix_value ());
     }
   else
+#if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 2) || OCTAVE_MAJOR_VERSION < 4
+    gripe_wrong_type_arg ("mget", args(0));
+#else
     err_wrong_type_arg ("mget", args(0));
+#endif
 
   return retval;
 }
@@ -281,7 +300,7 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 
 /*
 %!test
-%! m = rand (5e5, 8);
+%! m = rand (5e4, 8);
 %! fn = tempname();
 %! save ("-z", "-ascii", fn, "m")
 %! tic; ref = load (fn); t_load = toc()
