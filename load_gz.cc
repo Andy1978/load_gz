@@ -1,38 +1,23 @@
-//#include <cstdlib>
-//#include <ostream>
 #include <iostream>
-#include <string>
-
-//#include <octave/lo-mappers.h>
-//#include <octave/lo-utils.h>
-//#include <octave/mx-base.h>
-//#include <octave/str-vec.h>
+#include "zlib.h"
 
 #include <octave/oct.h>
 #include <octave/defun-dld.h>
-//#include <octave/errwarn.h>
+
 #if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
 
 #else
   #include <octave/interpreter.h>
 #endif
 
-//#include <octave/ops.h>
 #include <octave/ov-base.h>
-//#include <octave/ov-scalar.h>
-//#include <octave/ov-typeinfo.h>
-//#include <octave/ov.h>
-//#include <octave/ovl.h>
-//#include <octave/pager.h>
-//#include <octave/pr-output.h>
-//#include <octave/variables.h>
-
-#include "zlib.h"
 
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
 #define BUFFER_SIZE 8000
+
+//#define DEBUG
 
 class load_gz : public octave_base_value
 {
@@ -68,7 +53,9 @@ public:
 
   ~load_gz (void)
   {
-    std::cout << "load_gz destructor" << std::endl;
+#ifdef DEBUG
+    std::cout << "DEBUG: load_gz destructor" << std::endl;
+#endif
     free (buf);
     if (gz_fid)
       gzclose (gz_fid);
@@ -76,7 +63,9 @@ public:
 
   octave_base_value * clone (void)
   {
-    std::cout << "load_gz clone" << std::endl;
+#ifdef DEBUG
+    std::cout << "DEBUG: load_gz clone" << std::endl;
+#endif
     return new load_gz (*this);
   }
 
@@ -125,10 +114,14 @@ private:
 
   int poll ()
   {
-    fprintf (stderr, "gzeof (gz_fid) = %i\n", gzeof (gz_fid));
+#ifdef DEBUG
+    //std::cout << "DEBUG: gzeof (gz_fid) = " << gzeof (gz_fid) << std::endl;
+#endif
     if (gzeof (gz_fid))
       {
-        fprintf (stderr, "reset EOF...\n");
+#ifdef DEBUG
+        std::cout << "DEBUG: gzclearerr (gz_fid)" << std::endl;
+#endif
         gzclearerr (gz_fid);
         return 0;
       }
@@ -136,8 +129,9 @@ private:
     int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
     head[bytes_read] = 0;
 
-    fprintf (stderr, "bytes_read = %i\n", bytes_read);
-    //fprintf (stderr, "buf after gzread = '%s'\n", buf);
+#ifdef DEBUG
+        std::cout << "DEBUG: poll bytes_read = " << bytes_read << std::endl;
+#endif
 
     //for (int k = 0; k < BUFFER_SIZE; ++k)
     //  fprintf (stderr, "buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
@@ -145,8 +139,6 @@ private:
     if (bytes_read > 0)
       {
         char *tail = head + bytes_read;
-
-        //fprintf (stderr, "columns = %i\n", mat.columns());
 
         char *start = buf;
         char *end = buf;
