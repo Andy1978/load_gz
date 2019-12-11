@@ -49,7 +49,8 @@ int main (int argc, char *argv[])
           double d = rand () / (RAND_MAX - 1.0) * 100;
           gzprintf (foo, "%f %f %f %f\n", d, 2*d, 3*d, 4*d);
         }
-      gzflush (foo, Z_SYNC_FLUSH);
+      //gzflush (foo, Z_SYNC_FLUSH);
+      gzflush (foo, Z_FULL_FLUSH);
       //gzflush (foo, Z_FINISH);
       usleep (DELAY_MS * 1000);
     }

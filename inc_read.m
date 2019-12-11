@@ -30,7 +30,7 @@ for k=1:40
   endif
 
   fflush (stdout);
-  pause (0.3)
+  pause (0.2)
 endfor
 
 assert (assert_cnt > 20);
