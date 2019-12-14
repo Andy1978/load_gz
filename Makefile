@@ -5,7 +5,7 @@ TARGETS=load_gz.oct inc_write
 all: $(TARGETS)
 
 load_gz.oct: load_gz.cc
-	mkoctfile $^
+	mkoctfile -g $^
 
 # Testprog to create growing .gz files
 inc_write: inc_write.c
@@ -19,4 +19,4 @@ style:
 	astyle --style=gnu -s2 -n *.cc *.c
 
 clean:
-	rm -f *.o $(TARGETS) increasing_*.gz
+	rm -f *.o $(TARGETS) increasing_*.gz octave-workspace

@@ -15,7 +15,7 @@
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
-#define BUFFER_SIZE 8000
+#define BUFFER_SIZE 100
 
 //#define DEBUG
 
@@ -73,6 +73,7 @@ public:
   {
     return current_row_idx;
   }
+
   int columns (void) const
   {
     return mat.columns ();
@@ -82,6 +83,7 @@ public:
   {
     return false;
   }
+
   bool is_defined (void) const
   {
     return true;
@@ -97,6 +99,19 @@ public:
       return Matrix (0, 0);
   }
 
+  octave_value get () const
+  {
+    octave_scalar_map retval;
+
+    retval.assign ("fn", gz_fn);
+    retval.assign ("rows", rows());
+    retval.assign ("allocated_rows", mat.rows());
+    retval.assign ("columns", mat.columns());
+    retval.assign ("comments", comments);
+
+    return retval;
+  }
+
   void print (std::ostream& os, bool pr_as_read_syntax = false);
 
 private:
@@ -104,13 +119,19 @@ private:
   std::string gz_fn;
   gzFile gz_fid;
 
-  double empty_val;                   // currently NA (FIXME: make it configurable)?
+  double empty_val;                  // currently NA (FIXME: make it configurable)?
 
+  Cell comments;
   Matrix mat;
   octave_idx_type current_row_idx;
 
-  char *buf;
-  char *head;
+  char *buf;                        // internal buffer of size BUFFER_SIZE
+  char *head;                       // read position into internal buffer
+
+  bool isEOL (char c)
+  {
+    return c == 0x0A || c == 0x0D;
+  }
 
   int poll ()
   {
@@ -130,79 +151,111 @@ private:
     head[bytes_read] = 0;
 
 #ifdef DEBUG
-        std::cout << "DEBUG: poll bytes_read = " << bytes_read << std::endl;
-#endif
+    std::cout << "DEBUG: poll bytes_read = " << bytes_read << std::endl;
 
-    //for (int k = 0; k < BUFFER_SIZE; ++k)
-    //  fprintf (stderr, "buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
+    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
+      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
+#endif
 
     if (bytes_read > 0)
       {
+        // tail points one byte past the last char read (to trailing \0)
         char *tail = head + bytes_read;
+        assert (*tail == 0);
 
         char *start = buf;
         char *end = buf;
 
-        /* Idee:
-         * Parsen, bis ein Zeichen kommt, welches von strtod nicht interpretiert werden kann.
-         * Somit kann ein Trennzeichen auch ein ";" oder "," sein
+        /* How parsing works:
          *
-         * buf fängt immer mit dem Anfang der Zeile an, wurde beim letzten Mal pollen dier Zeile nicht mit LF abgeschlossen,
-         * so bleibt sie im buffer
+         * strtod parses until it hits a non-convertible character.
+         * The read double is written into the matrix (if there conversion was successful)
+         * and the columns pointer is incremented.
+         * If the next char is a newline, the next row is adressed and column index is set to 0.
+         *
+         * With this it's possible to mix single column delimiters, for example
+         * "4 5.6;7.8,9"
+         *
+         * If there are two non-convertible chars, the empty val (currently only NA) is used.
+         * -> "4;;5;6" results in a matrix [4 NA 5 6]
+         *
+         * "*buf" always points to the start of a new line
+         *
+         * If there is no newline before "tail", the read start of the line remains in the buffer
+         * until the next read.
          */
 
         octave_idx_type current_col_idx = 0;
+        bool row_had_data = false;
         while (start < tail)
           {
+            //printf ("start = '%s'\n", start);
+            // First line char # indicates comment -> consume char until EOL
             if (*start == '#')
-              while (*start++ != 0x0A);
+              {
+                //printf ("first char is #\n");
+                char *start_of_comment = start;
+                while (start < tail && ! isEOL (*start++));
+
+                // check if the buffer ended before a EOL was found
+                if (! *start)
+                  {
+                    //printf ("buffer ended before EOL\n");
+                    // Set head at start of comment and bail out
+                    head = start_of_comment;
+                    break;
+                  }
+                else
+                  {
+                    std::string tmp (start_of_comment, start - start_of_comment - 1);
+                    //printf ("saving comment '%s'\n", tmp.c_str());
+                    comments.resize (dim_vector (comments.rows () + 1, 1));
+                    comments(comments.rows () - 1) = tmp;
+                    head = start;
+                  }
+              }
 
             double d = strtod (start, &end);
 
             //if (end == start)
-            //  fprintf (stderr, "ungültiges zeichen\n");
-
+            //  fprintf (stderr, "non-convertible char\n");
             //fprintf (stderr, "d = %f, char at end is = 0x%X\n", d, *end);
-
             //fprintf (stderr, "c = %i, r = %i, d = %f, *end = 0x%X\n", current_col_idx, current_row_idx, d, *end);
 
+            // Check if we need to increase the number of columns
             if (current_col_idx >= mat.columns ())
               mat.resize (mat.rows(), current_col_idx + 1, empty_val);
 
-            // end == start kann z.B. Auftreten, wenn ungültige Zeichen
-            // oder zwei "nicht whitespace" Trennzeichen, z.B. 5;;6
+            // strtod conversion was successful;
             if (end != start)
-              mat (current_row_idx, current_col_idx) = d;
+              {
+                row_had_data = true;
+                mat (current_row_idx, current_col_idx) = d;
+              }
 
             start = end + 1;
 
             current_col_idx++;
-            if (*end == 0x0A)
-              {
-                //fprintf (stderr, "newline\n");
 
+            if (row_had_data && isEOL (*end))
+              {
                 current_row_idx++;
                 if (mat.rows () < current_row_idx + 1)
-                  {
-                    mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
-                    //fprintf (stderr, "rows after resize = %i\n", mat.rows ());
-                  }
+                  mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
+
                 current_col_idx = 0;
                 head = start;
+                row_had_data = false;
               }
 
           }
         int chars_left = tail - head;
-        //fprintf (stderr, "exit while, %i bytes left\n", chars_left);
 
-        //fprintf (stderr, "head before move = '%s'\n", head);
-
-        // umkopieren (mit trailing 0)
+        // remove converted parts (move remaining buf to left)
         memmove (buf, head, chars_left + 1);
         head = buf + chars_left;
         current_col_idx = 0;
 
-        //fprintf (stderr, "buf after move = '%s'\n", buf);
       }
     return bytes_read;
   }
@@ -213,10 +266,11 @@ private:
 void load_gz::print (std::ostream& os, bool pr_as_read_syntax)
 {
   os << "class load_gz:\n";
-  os << "\n  gz_fn   = '" << gz_fn.c_str () << "'";
-  os << "\n  gz_fid  = " << gz_fid;
-  os << "\n  rows  = " << rows();
+  os << "\n  fn       = '" << gz_fn.c_str () << "'";
+  os << "\n  rows     = " << rows();
   os << "\n  columns  = " << columns();
+  for (unsigned int k = 0; k < comments.rows(); ++k)
+    os << "\n  comments(" << k << ") = " << comments(k).string_value();
   newline (os);
 }
 
@@ -266,23 +320,45 @@ DEFUN_DLD (mget, args,,
            "mget (I)")
 {
   octave_value_list retval;
-
   if (args.length () != 1)
     {
       print_usage();
       return retval;
     }
-
   if (args(0).type_id () == load_gz::static_type_id ())
     {
       const octave_base_value& rep = args(0).get_rep ();
-      retval.append (((load_gz&) rep) . matrix_value ());
+      retval.append (((load_gz&) rep).matrix_value ());
     }
   else
 #if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 2) || OCTAVE_MAJOR_VERSION < 4
     gripe_wrong_type_arg ("mget", args(0));
 #else
     err_wrong_type_arg ("mget", args(0));
+#endif
+
+  return retval;
+}
+
+DEFUN_DLD (get, args,,
+           "get (I)")
+{
+  octave_value_list retval;
+  if (args.length () != 1)
+    {
+      print_usage();
+      return retval;
+    }
+  if (args(0).type_id () == load_gz::static_type_id ())
+    {
+      const octave_base_value& rep = args(0).get_rep ();
+      retval.append(((load_gz&) rep).get ());
+    }
+  else
+#if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 2) || OCTAVE_MAJOR_VERSION < 4
+    gripe_wrong_type_arg ("get", args(0));
+#else
+    err_wrong_type_arg ("get", args(0));
 #endif
 
   return retval;
@@ -300,4 +376,49 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 %! printf ("speed up is %.1f\n", t_load/t_load_gz);
 %! assert (m, ref);
 %! unlink (fn);
+
+%!test
+%! fn = tempname();
+%!
+%! fid = fopen (fn, "wb");
+%!
+%! fprintf (fid, "# testing mixed delimiter and linebreaks\n");
+%! fprintf (fid, "#\n");
+%! fprintf (fid, "7 8.12 9.333\n");
+%! fprintf (fid, "1;2.3,4.5\n");
+%! fprintf (fid, "\n");
+%! fprintf (fid, "2\t3.4\t5.6\n");
+%! fprintf (fid, "# CR linebreak (classic apple)\r");
+%! fprintf (fid, "10 20 30\r");
+%! fprintf (fid, "15 25 35.6\r");
+%! fprintf (fid, "# CR+LF linebreak (windoze)\r\n");
+%! fprintf (fid, "2.1255363456 3.123467384456 4.874443367876\r\n");
+%! fprintf (fid, "\r\n");
+%! fprintf (fid, "3.14156 2.718 40\r\n");
+%! fclose (fid);
+%!
+%! x = load_gz (fn);
+%! m = mget (x);
+%!
+%! ref = [7 8.12 9.333;
+%!        1 2.3 4.5;
+%!        2 3.4 5.6;
+%!        10 20 30;
+%!        15 25 35.6;
+%!        2.1255363456 3.123467384456 4.874443367876;
+%!        3.14156 2.718 40];
+%!
+%! assert (m, ref);
+%!
+%! s = get (x);
+%! assert (s.fn, fn)
+%! assert (s.rows, 7)
+%! assert (s.columns, 3)
+%! assert (s.comments{1}, "# testing mixed delimiter and linebreaks")
+%! assert (s.comments{2}, "#")
+%! assert (s.comments{3}, "# CR linebreak (classic apple)")
+%! assert (s.comments{4}, "# CR+LF linebreak (windoze)")
+%!
+%! unlink (fn);
+
 */
