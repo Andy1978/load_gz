@@ -15,7 +15,7 @@
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 10
 
 //#define DEBUG
 
@@ -27,6 +27,8 @@ public:
     : octave_base_value (),
       gz_fid (NULL),
       empty_val (lo_ieee_na_value ()),
+      in_comment (false),
+      current_col_idx (0),
       current_row_idx (0)
   { }
 
@@ -34,6 +36,8 @@ public:
     : octave_base_value (),
       gz_fid (NULL),
       empty_val (lo_ieee_na_value ()),
+      in_comment (false),
+      current_col_idx (0),
       current_row_idx (0)
   {
     gz_fn = fn;
@@ -123,6 +127,9 @@ private:
 
   Cell comments;
   Matrix mat;
+
+  bool in_comment;                   // start of comment detected but now newline yet
+  octave_idx_type current_col_idx;
   octave_idx_type current_row_idx;
 
   char *buf;                        // internal buffer of size BUFFER_SIZE
@@ -168,39 +175,31 @@ private:
 
         /* How parsing works:
          *
-         * strtod parses until it hits a non-convertible character.
+         * strtod reads until it hits a non-convertible character.
          * The read double is written into the matrix (if there conversion was successful)
-         * and the columns pointer is incremented.
-         * If the next char is a newline, the next row is adressed and column index is set to 0.
-         *
+         * and the column pointer is incremented.
+         * If the next char is a newline (CR || LF, see isEOL), the next row is addressed
+         * and the column index is set to 0. Subsequent newline chars are ignored.
+         * 
          * With this it's possible to mix single column delimiters, for example
          * "4 5.6;7.8,9"
          *
          * If there are two non-convertible chars, the empty val (currently only NA) is used.
          * -> "4;;5;6" results in a matrix [4 NA 5 6]
-         *
-         * "*buf" always points to the start of a new line
-         *
-         * If there is no newline before "tail", the read start of the line remains in the buffer
-         * until the next read.
          */
 
-        octave_idx_type current_col_idx = 0;
-        bool row_had_data = false;
         while (start < tail)
           {
-            //printf ("start = '%s'\n", start);
-            // First line char # indicates comment -> consume char until EOL
+            // # indicates comment -> consume char until EOL
             if (*start == '#')
               {
-                //printf ("first char is #\n");
                 char *start_of_comment = start;
                 while (start < tail && ! isEOL (*start++));
 
-                // check if the buffer ended before a EOL was found
+                // check if the buffer ended before an EOL was found
                 if (! *start)
                   {
-                    //printf ("buffer ended before EOL\n");
+                    printf ("buffer ended before EOL\n");
                     // Set head at start of comment and bail out
                     head = start_of_comment;
                     break;
@@ -213,6 +212,8 @@ private:
                     comments(comments.rows () - 1) = tmp;
                     head = start;
                   }
+
+                in_comment = true;
               }
 
             double d = strtod (start, &end);
