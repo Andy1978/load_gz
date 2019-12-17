@@ -5,18 +5,8 @@ char isEOL (char c)
   return c == 0x0A || c == 0x0D;
 }
   
-void parse (char *buf, char** tail)
+void parse (char *buf, char** tail, char *in_comment, int *current_row_idx, int *current_col_idx, cb_new_value new_value, cb_new_comment new_comment)
 {
-  static int current_row_idx = 0;
-  static int current_col_idx = 0;
-  static char in_comment = 0;
-
-  if (!buf) // init
-    {
-      current_row_idx = current_col_idx = in_comment = 0;
-      return;
-    }
-  
   // tail points one byte past the last char read (to trailing \0)
   assert (**tail == 0);
 
@@ -25,12 +15,21 @@ void parse (char *buf, char** tail)
 
   while (start < *tail)
     {
-      if (current_col_idx == 0 && *start == '#')
+      if (*current_col_idx == 0 && *start == '#')
         {
           // comment char at beginning of line
           printf ("comment char at beginning of line\n");
 
-          in_comment = 1;
+
+// FIXME: Ich denke ich werde das so implementieren,
+// dass ein comment am Stück in den Buffer passen muss. Wenn das nicht der Fall ist,
+// wird er halt abgeschnitten.
+
+new_comment (0, "foobar");
+
+
+
+          *in_comment = 1;
         }
 
       double d = strtod (start, &end);
@@ -52,8 +51,8 @@ void parse (char *buf, char** tail)
       else
         {
           // All fine, store value into mat
-          printf ("All fine, store value '%f' into mat (%i, %i)\n", d, current_row_idx, current_col_idx);
-          cb_new_value (current_row_idx, current_col_idx, d);
+          printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
+          new_value (0, *current_row_idx, *current_col_idx, d);
           start = end + 1;
         }
 
@@ -61,8 +60,8 @@ void parse (char *buf, char** tail)
 
       if (isEOL (*end))
         {
-          current_row_idx++;
-          current_col_idx = 0;
+          (*current_row_idx)++;
+          *current_col_idx = 0;
 
           // consume as much of EOL chars as possible
           while (++end < *tail && isEOL (*end))

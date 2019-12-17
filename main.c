@@ -10,18 +10,23 @@
 #define GROWTH_FACTOR 1.5
 #define BUFFER_SIZE 10
 
-void cb_new_value (int row, int col, double value)
+void new_value (void *p, int row, int col, double value)
 {
+  // handle resizing here
   printf ("mat(%i,%i) = %f\n", row, col, value);
 }
 
-void cb_new_comment (const char* c)
+void new_comment (void *p, const char* c)
 {
   printf ("new_comment '%s'\n", c);
 }
 
 int main ()
 {
+  int current_row_idx = 0;
+  int current_col_idx = 0;
+  char in_comment = 0;
+
   char *tail = 0;
   char *buf = tail = (char *) malloc (BUFFER_SIZE);
 
@@ -33,7 +38,7 @@ int main ()
       *tail = 0;
 
       printf ("bytes_read = %i, tail at %li\n", bytes_read, tail-buf);
-      parse (buf, &tail);
+      parse (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, &new_value, &new_comment);
     }
 
   free (buf);
