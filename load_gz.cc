@@ -11,13 +11,54 @@
 #endif
 
 #include <octave/ov-base.h>
+#include "parse_csv.h"
+
+/***********************    settings    ********************************/
+
 
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
 #define BUFFER_SIZE 10
 
-//#define DEBUG
+#define DEBUG
+
+/*************************     debugging     **************************/
+
+#ifdef DEBUG
+
+  #include <iomanip>
+
+  // a = first user defined parameter
+  // b = second user defined parameter
+
+  // example:
+  // DBG_MSG2 ("foo", 8);
+  // writes to stdout:
+  // save_json.cc:save_matrix   :113  foo 8
+
+  #define DBG_MSG2(a, b) std::cout << "DEBUG: "\
+                         << std::setw (15) << std::left\
+                         << __FILE__ << ":"\
+                         << std::setw (14) << __FUNCTION__ << ":"\
+                         << std::setw (4) << __LINE__ << " "\
+                         << a << " "\
+                         << b << std::endl;
+
+  #define DBG_MSG1(a) DBG_MSG2(a, "")
+
+  #define DBG_OUT(x) std::cout << "DEBUG: " << #x << " = " << x << std::endl;
+
+#else //No DEBUG defined
+
+  #define DBG_MSG2(a, b)
+  #define DBG_MSG1(a)
+  #define DBG_CALL(x)
+  #define DBG_OUT(x)
+
+#endif
+
+/************************  class load_gz  ******************************/
 
 class load_gz : public octave_base_value
 {
@@ -40,12 +81,14 @@ public:
       current_col_idx (0),
       current_row_idx (0)
   {
+    DBG_MSG1 ("c'tor");
+
     gz_fn = fn;
     gz_fid = gzopen (gz_fn.c_str (), "r");
     if (! gz_fid)
       error ("Opening '%s' failed", gz_fn.c_str ());
 
-    buf = head = (char *) malloc (BUFFER_SIZE);
+    buf = tail = (char *) malloc (BUFFER_SIZE);
     if (! buf)
       error ("malloc failed");
 
@@ -57,9 +100,7 @@ public:
 
   ~load_gz (void)
   {
-#ifdef DEBUG
-    std::cout << "DEBUG: load_gz destructor" << std::endl;
-#endif
+    DBG_MSG1 ("d'tor");
     free (buf);
     if (gz_fid)
       gzclose (gz_fid);
@@ -67,9 +108,7 @@ public:
 
   octave_base_value * clone (void)
   {
-#ifdef DEBUG
-    std::cout << "DEBUG: load_gz clone" << std::endl;
-#endif
+    DBG_MSG1 ("");
     return new load_gz (*this);
   }
 
@@ -128,135 +167,50 @@ private:
   Cell comments;
   Matrix mat;
 
-  bool in_comment;                   // start of comment detected but now newline yet
-  octave_idx_type current_col_idx;
-  octave_idx_type current_row_idx;
+  char in_comment;                  // start of comment detected but now newline yet
+  int current_col_idx;
+  int current_row_idx;
 
   char *buf;                        // internal buffer of size BUFFER_SIZE
-  char *head;                       // read position into internal buffer
+  char *tail;                       // one byte behind the end of read data
 
   bool isEOL (char c)
   {
     return c == 0x0A || c == 0x0D;
   }
 
+  static void new_value (void *p, int row, int col, double value)
+  {
+    // handle resizing here
+    printf ("mat(%i,%i) = %f\n", row, col, value);
+  }
+
+  static void new_comment (void *p, const char* c)
+  {
+    printf ("new_comment '%s'\n", c);
+  } 
+
   int poll ()
   {
-#ifdef DEBUG
-    //std::cout << "DEBUG: gzeof (gz_fid) = " << gzeof (gz_fid) << std::endl;
-#endif
     if (gzeof (gz_fid))
       {
-#ifdef DEBUG
-        std::cout << "DEBUG: gzclearerr (gz_fid)" << std::endl;
-#endif
+        DBG_MSG1 ("gzclearerr (gz_fid)");
         gzclearerr (gz_fid);
         return 0;
       }
 
-    int bytes_read = gzread (gz_fid, head, BUFFER_SIZE - (head - buf) - 1);
-    head[bytes_read] = 0;
+    int bytes_read = gzread (gz_fid, tail, BUFFER_SIZE - (tail - buf) - 1);
+    tail = tail + bytes_read;
+    *tail = 0;
 
-#ifdef DEBUG
-    std::cout << "DEBUG: poll bytes_read = " << bytes_read << std::endl;
+    DBG_OUT (bytes_read);
 
-    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
-      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
-#endif
+//    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
+//      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
 
     if (bytes_read > 0)
       {
-        // tail points one byte past the last char read (to trailing \0)
-        char *tail = head + bytes_read;
-        assert (*tail == 0);
-
-        char *start = buf;
-        char *end = buf;
-
-        /* How parsing works:
-         *
-         * strtod reads until it hits a non-convertible character.
-         * The read double is written into the matrix (if there conversion was successful)
-         * and the column pointer is incremented.
-         * If the next char is a newline (CR || LF, see isEOL), the next row is addressed
-         * and the column index is set to 0. Subsequent newline chars are ignored.
-         * 
-         * With this it's possible to mix single column delimiters, for example
-         * "4 5.6;7.8,9"
-         *
-         * If there are two non-convertible chars, the empty val (currently only NA) is used.
-         * -> "4;;5;6" results in a matrix [4 NA 5 6]
-         */
-
-        while (start < tail)
-          {
-            // # indicates comment -> consume char until EOL
-            if (*start == '#')
-              {
-                char *start_of_comment = start;
-                while (start < tail && ! isEOL (*start++));
-
-                // check if the buffer ended before an EOL was found
-                if (! *start)
-                  {
-                    printf ("buffer ended before EOL\n");
-                    // Set head at start of comment and bail out
-                    head = start_of_comment;
-                    break;
-                  }
-                else
-                  {
-                    std::string tmp (start_of_comment, start - start_of_comment - 1);
-                    //printf ("saving comment '%s'\n", tmp.c_str());
-                    comments.resize (dim_vector (comments.rows () + 1, 1));
-                    comments(comments.rows () - 1) = tmp;
-                    head = start;
-                  }
-
-                in_comment = true;
-              }
-
-            double d = strtod (start, &end);
-
-            //if (end == start)
-            //  fprintf (stderr, "non-convertible char\n");
-            //fprintf (stderr, "d = %f, char at end is = 0x%X\n", d, *end);
-            //fprintf (stderr, "c = %i, r = %i, d = %f, *end = 0x%X\n", current_col_idx, current_row_idx, d, *end);
-
-            // Check if we need to increase the number of columns
-            if (current_col_idx >= mat.columns ())
-              mat.resize (mat.rows(), current_col_idx + 1, empty_val);
-
-            // strtod conversion was successful;
-            if (end != start)
-              {
-                row_had_data = true;
-                mat (current_row_idx, current_col_idx) = d;
-              }
-
-            start = end + 1;
-
-            current_col_idx++;
-
-            if (row_had_data && isEOL (*end))
-              {
-                current_row_idx++;
-                if (mat.rows () < current_row_idx + 1)
-                  mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
-
-                current_col_idx = 0;
-                head = start;
-                row_had_data = false;
-              }
-
-          }
-        int chars_left = tail - head;
-
-        // remove converted parts (move remaining buf to left)
-        memmove (buf, head, chars_left + 1);
-        head = buf + chars_left;
-        current_col_idx = 0;
-
+        parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
       }
     return bytes_read;
   }

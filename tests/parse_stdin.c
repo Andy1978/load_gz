@@ -38,7 +38,7 @@ int main ()
       *tail = 0;
 
       printf ("bytes_read = %i, tail at %li\n", bytes_read, tail-buf);
-      parse (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, &new_value, &new_comment);
+      parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
     }
 
   free (buf);
