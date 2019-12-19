@@ -1,5 +1,3 @@
-#!/usr/bin/env -S octave -q
-
 ## create CSV
 fn = "sample.csv";
 

@@ -1,3 +1,23 @@
+/*
+  parse_csv: parse CSV with numerical data and comments
+
+  Copyright (C) 2019 Andreas Weber
+
+  This software is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this library; see the file LICENSE.  If not, see
+  <https://www.gnu.org/licenses/>.
+*/
+
 #include "parse_csv.h"
 
 char isEOL (char c)
@@ -23,7 +43,7 @@ char isEOL (char c)
  * -> "4;;5;6" results in a matrix [4 NA 5 6]
  *
  * Non-processed data is moved to *buf at the end and *tail is updated accordingly
- * so that the next read can start writind data to *tail.
+ * so that the next read can start writing data to *tail.
  */
 
 void parse_csv (char *buf,
@@ -43,61 +63,75 @@ void parse_csv (char *buf,
 
   while (start < *tail)
     {
-      if (*current_col_idx == 0 && *start == '#')
+      if (*current_col_idx == 0 && (*start == '#' || *in_comment))
         {
-          // comment char at beginning of line
-          DBG_STR ("comment char at beginning of line");
+          // new comment or already in "read comment" state
+          DBG_STR ("comment state");
 
+          // find EOL
+          while (*(++end) && !isEOL (*end));
+          DBG_LINT_VAL (end-buf);
 
-// FIXME: Ich denke ich werde das so implementieren,
-// dass ein comment am Stück in den Buffer passen muss. Wenn das nicht der Fall ist,
-// wird er halt abgeschnitten.
+          if (! *end) // no EOL found yet
+            {
+              DBG_STR ("buffer ended before EOL");
+              new_comment (userdata, *in_comment, 0, start);
+              *in_comment = 1;
+              start = end;
+              // bail out
+              break;
+            }
 
-new_comment (userdata, "foobar");
-
-
-
-          *in_comment = 1;
-        }
-
-      double d = strtod (start, &end);
-
-      if (end == start)
-        {
-          // no conversion was performed
-          DBG_STR ("no conversion was performed");
-          start = end + 1;
-
-        }
-      else if (end == *tail)
-        {
-          // possible premature end of conversion due to end of buffer
-          DBG_STR ("possible premature end of conversion due to end of buffer");
-          break;
-
-        }
-      else
-        {
-          // All fine, store value into mat
-          #ifdef DEBUG
-          printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
-          #endif
-          new_value (userdata, *current_row_idx, *current_col_idx, d);
-          start = end + 1;
-        }
-
-      (*current_col_idx)++;
-
-      if (isEOL (*end))
-        {
-          (*current_row_idx)++;
-          *current_col_idx = 0;
+          // an EOL was found. Overwrite it with \0
+          *end = 0;
+          new_comment (userdata, *in_comment, 1, start);
+          *in_comment = 0;
 
           // consume as much of EOL chars as possible
           while (++end < *tail && isEOL (*end))
-            DBG_STR ("skip EOL\n");
+            DBG_STR ("skip EOL");
 
           start = end;
+        }
+      else  // "normal" string to double conversion
+        {
+          DBG_STR ("strtod");
+          double d = strtod (start, &end);
+
+          if (end == start)
+            {
+              DBG_STR ("no conversion was performed");
+              start = end + 1;
+
+            }
+          else if (end == *tail)
+            {
+              DBG_STR ("possible premature end of conversion due to end of buffer");
+              break;
+            }
+          else
+            {
+              // All fine, store value into mat
+              #ifdef DEBUG
+              //printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
+              #endif
+              new_value (userdata, *current_row_idx, *current_col_idx, d);
+              start = end + 1;
+            }
+
+          (*current_col_idx)++;
+
+          if (isEOL (*end))
+            {
+              (*current_row_idx)++;
+              *current_col_idx = 0;
+
+              // consume as much of EOL chars as possible
+              while (++end < *tail && isEOL (*end))
+                DBG_STR ("skip EOL");
+
+              start = end;
+            }
         }
 
 
@@ -113,5 +147,4 @@ new_comment (userdata, "foobar");
     *tail = buf + chars_left;
 
     DBG_STR_VAL (buf);
-
 }

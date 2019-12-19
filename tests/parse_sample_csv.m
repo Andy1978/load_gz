@@ -1,10 +1,6 @@
-#!/usr/bin/env -S octave -q
-
 fn = "sample.csv";
 
 addpath ("../");
-autoload ("mget", "load_gz.oct");
-autoload ("get", "load_gz.oct");
 
 x = load_gz (fn);
 m = mget (x)

@@ -1,11 +1,11 @@
 .PHONY: all check style clean
 
 TARGETS = sample.csv parse_stdin inc_write
-
+OCT = octave -q --no-gui
 all: $(TARGETS)
 
 sample.csv: create_sample_csv.m
-	./$<
+	$(OCT) $<
 
 parse_stdin: parse_stdin.c ../parse_csv.c
 	$(CC) -Wall -Wextra -fsanitize=address -I../ -O0 $^ -o $@
@@ -16,10 +16,13 @@ parse_stdin: parse_stdin.c ../parse_csv.c
 inc_write: inc_write.c
 	$(CC) -Wall -Wextra $^ -o $@ -lz
 
-check: sample.csv
-	./parse_stdin < sample.csv
-	#octave --no-gui inc_read.m
-	#./parse_sample_csv.m
+check: sample.csv parse_stdin inc_write
+	$(OCT) --eval 'addpath ("../"); test load_gz'
+	#./parse_stdin < sample.csv
+	#$(OCT) parse_sample_csv.m
+
+benchmark: inc_write
+	$(OCT) inc_read.m
 
 # TODO: add fuzzing:
 # https://fuzzing-project.org/tutorial1.html
@@ -32,3 +35,4 @@ style:
 
 clean:
 	rm -f $(TARGETS) octave-workspace
+

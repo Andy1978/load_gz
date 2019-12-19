@@ -1,0 +1,2 @@
+autoload ("mget", which ("load_gz.oct"));
+autoload ("get", which ("load_gz.oct"));

@@ -1,6 +1,7 @@
-## Starts ./inc_write which creates and growing .gz file, synced with
-## Z_SYNC_FLUSH so that the decompressor is able to encode it
-autoload ("mget", which ("load_gz.oct"));
+## Starts ./inc_write which creates a growing .gz file, synced with
+## Z_SYNC_FLUSH so that the decompressor is able to decode it
+
+addpath ("../")
 
 #fn = "foobar.gz";
 fn = tempname ();

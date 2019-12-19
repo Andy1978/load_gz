@@ -1,3 +1,24 @@
+/*
+  load_gz: An GNU Octave wrapper to (optional incrementally) load
+  numerical matrices.
+
+  Copyright (C) 2019 Andreas Weber
+
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this library; see the file LICENSE.  If not, see
+  <https://www.gnu.org/licenses/>.
+*/
+
 #include <iostream>
 #include "zlib.h"
 
@@ -13,13 +34,10 @@
 #include <octave/ov-base.h>
 
 /***********************    settings    ********************************/
-
-//#define DEBUG
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
-// BUFFER_SIZE has to be at least the maximum rowlength in bytes
-#define BUFFER_SIZE 10
-
+// BUFFER_SIZE should be at least >20 and >1000 for good performance
+#define BUFFER_SIZE 25
 /************************  class load_gz  ******************************/
 
 #include "parse_csv.h"
@@ -143,16 +161,47 @@ private:
     return c == 0x0A || c == 0x0D;
   }
 
-  static void new_value (void *p, int row, int col, double value)
+  static void cb_wrap_new_value (void *p, int row, int col, double value)
   {
-    // handle resizing here
-    printf ("mat(%i,%i) = %f\n", row, col, value);
+    ((load_gz*) p)->new_value (row, col, value);
   }
 
-  static void new_comment (void *p, const char* c)
+  static void cb_wrap_new_comment (void *p, char append, char complete, const char* c)
   {
-    printf ("new_comment '%s'\n", c);
+    ((load_gz*) p)->new_comment (append, complete, c);
   } 
+
+  void new_value (int row, int col, double value)
+  {
+    // handle resizing here
+    #ifdef DEBUG
+    printf ("mats(%i,%i) = %f\n", row, col, value);
+    #endif
+
+    // Check if we need to increase the number of columns
+    if (col >= mat.columns ())
+      mat.resize (mat.rows(), col + 1, empty_val);
+
+    // Check if we need to increase the number of rows
+    if (row >= mat.rows ())
+      mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
+    
+    mat (row, col) = value;
+  }
+
+  void new_comment (char append, char, const char* c)
+  {
+    #ifdef DEBUG
+    printf ("new_comment append = %i, complete = %i, '%s'\n", append, complete, c);
+    #endif
+    if (! append)
+      {
+        comments.resize (dim_vector (comments.rows () + 1, 1));
+        comments(comments.rows () - 1) = std::string (c);
+      }
+    else
+      comments(comments.rows () - 1) = comments(comments.rows () - 1).string_value() + std::string (c);
+  }
 
   int poll ()
   {
@@ -174,7 +223,7 @@ private:
 
     if (bytes_read > 0)
       {
-        parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
+        parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
       }
     return bytes_read;
   }
@@ -182,7 +231,7 @@ private:
   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
 };
 
-void load_gz::print (std::ostream& os, bool pr_as_read_syntax)
+void load_gz::print (std::ostream& os, bool)// pr_as_read_syntax)
 {
   os << "class load_gz:\n";
   os << "\n  fn       = '" << gz_fn.c_str () << "'";
@@ -337,7 +386,6 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 %! assert (s.comments{2}, "#")
 %! assert (s.comments{3}, "# CR linebreak (classic apple)")
 %! assert (s.comments{4}, "# CR+LF linebreak (windoze)")
-%!
 %! unlink (fn);
 
 */
