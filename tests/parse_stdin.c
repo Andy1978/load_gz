@@ -45,7 +45,7 @@ void new_comment (void *p, char append, char complete, const char* c)
 #if 1
   if (! append && !last_cb_was_comment)
     putchar ('\n');
-  printf (c);
+  fputs (c, stdout);
   if (complete)
     putchar ('\n');
 #endif

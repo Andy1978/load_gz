@@ -24,11 +24,11 @@ check: sample.csv parse_stdin inc_write
 benchmark: inc_write
 	$(OCT) inc_read.m
 
-# TODO: add fuzzing:
+# fuzzing:
 # https://fuzzing-project.org/tutorial1.html
 # http://caca.zoy.org/wiki/zzuf/tutorial1
 fuzz: parse_stdin
-	zzuf -s 5:10 -r 0.05 -i ./parse_stdin 1>/dev/zero < sample
+	zzuf -q -s 0:10000 -r 0.05 ./parse_stdin sample.csv
 
 style:
 	astyle --style=gnu -s2 -n *.c
