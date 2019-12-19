@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
       //gzflush (foo, Z_FINISH);
       usleep (DELAY_MS * 1000);
     }
-  
+
   gzclose (foo);
   return 0;
 

@@ -79,9 +79,9 @@ int main (int argc, char *argv[])
     {
       tail = tail + bytes_read;
       *tail = 0;
-      #ifdef DEBUG
+#ifdef DEBUG
       printf ("bytes_read = %i, tail at %li\n", bytes_read, tail-buf);
-      #endif
+#endif
       parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
     }
   putchar ('\n');

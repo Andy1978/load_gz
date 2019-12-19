@@ -112,9 +112,9 @@ void parse_csv (char *buf,
           else
             {
               // All fine, store value into mat
-              #ifdef DEBUG
+#ifdef DEBUG
               //printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
-              #endif
+#endif
               new_value (userdata, *current_row_idx, *current_col_idx, d);
               start = end + 1;
             }
@@ -138,13 +138,13 @@ void parse_csv (char *buf,
 
     } // end while
 
-    int chars_left = *tail - start;
-    DBG_INT_VAL (chars_left);
+  int chars_left = *tail - start;
+  DBG_INT_VAL (chars_left);
 
-    // move memory from start to tail to buf
-    // (remove converted parts, move remaining/not yet used memory to beginning of buffer)
-    memmove (buf, start, chars_left + 1);
-    *tail = buf + chars_left;
+  // move memory from start to tail to buf
+  // (remove converted parts, move remaining/not yet used memory to beginning of buffer)
+  memmove (buf, start, chars_left + 1);
+  *tail = buf + chars_left;
 
-    DBG_STR_VAL (buf);
+  DBG_STR_VAL (buf);
 }

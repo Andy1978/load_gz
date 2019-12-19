@@ -28,7 +28,7 @@
 #if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
 
 #else
-  #include <octave/interpreter.h>
+#include <octave/interpreter.h>
 #endif
 
 #include <octave/ov-base.h>
@@ -78,7 +78,7 @@ public:
   }
 
   //~ load_gz (const load_gz& s)
-    //~ : octave_base_value () { }
+  //~ : octave_base_value () { }
 
   ~load_gz (void)
   {
@@ -169,14 +169,14 @@ private:
   static void cb_wrap_new_comment (void *p, char append, char complete, const char* c)
   {
     ((load_gz*) p)->new_comment (append, complete, c);
-  } 
+  }
 
   void new_value (int row, int col, double value)
   {
     // handle resizing here
-    #ifdef DEBUG
+#ifdef DEBUG
     printf ("mats(%i,%i) = %f\n", row, col, value);
-    #endif
+#endif
 
     // Check if we need to increase the number of columns
     if (col >= mat.columns ())
@@ -185,15 +185,15 @@ private:
     // Check if we need to increase the number of rows
     if (row >= mat.rows ())
       mat.resize (mat.rows () * GROWTH_FACTOR, mat.columns (), empty_val);
-    
+
     mat (row, col) = value;
   }
 
   void new_comment (char append, char, const char* c)
   {
-    #ifdef DEBUG
+#ifdef DEBUG
     printf ("new_comment append = %i, complete = %i, '%s'\n", append, complete, c);
-    #endif
+#endif
     if (! append)
       {
         comments.resize (dim_vector (comments.rows () + 1, 1));
@@ -243,11 +243,11 @@ void load_gz::print (std::ostream& os, bool)// pr_as_read_syntax)
 }
 
 #if (OCTAVE_MAJOR_VERSION == 4 && OCTAVE_MINOR_VERSION < 4) || OCTAVE_MAJOR_VERSION < 4
-DEFUN_DLD (load_gz, args, ,
+DEFUN_DLD (load_gz, args,,
 #else
 DEFMETHOD_DLD (load_gz, interp, args,,
 #endif
-               "mat = load_gz (fn)\n\
+           "mat = load_gz (fn)\n\
 \n\
 Reads matrix from previously with load_gz opened file.")
 {

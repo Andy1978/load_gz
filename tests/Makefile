@@ -31,7 +31,7 @@ fuzz: parse_stdin
 	zzuf -s 5:10 -r 0.05 -i ./parse_stdin 1>/dev/zero < sample
 
 style:
-	astyle --style=gnu -s2 -n *.cc *.c
+	astyle --style=gnu -s2 -n *.c
 
 clean:
 	rm -f $(TARGETS) octave-workspace
