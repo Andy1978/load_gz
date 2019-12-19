@@ -46,7 +46,7 @@ void parse_csv (char *buf,
       if (*current_col_idx == 0 && *start == '#')
         {
           // comment char at beginning of line
-          printf ("comment char at beginning of line\n");
+          DBG_STR ("comment char at beginning of line");
 
 
 // FIXME: Ich denke ich werde das so implementieren,
@@ -65,21 +65,23 @@ new_comment (userdata, "foobar");
       if (end == start)
         {
           // no conversion was performed
-          printf ("no conversion was performed\n");
+          DBG_STR ("no conversion was performed");
           start = end + 1;
 
         }
       else if (end == *tail)
         {
           // possible premature end of conversion due to end of buffer
-          printf ("possible premature end of conversion due to end of buffer\n");
+          DBG_STR ("possible premature end of conversion due to end of buffer");
           break;
 
         }
       else
         {
           // All fine, store value into mat
+          #ifdef DEBUG
           printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
+          #endif
           new_value (userdata, *current_row_idx, *current_col_idx, d);
           start = end + 1;
         }
@@ -93,7 +95,7 @@ new_comment (userdata, "foobar");
 
           // consume as much of EOL chars as possible
           while (++end < *tail && isEOL (*end))
-            printf ("skip EOL\n");
+            DBG_STR ("skip EOL\n");
 
           start = end;
         }
@@ -103,13 +105,13 @@ new_comment (userdata, "foobar");
     } // end while
 
     int chars_left = *tail - start;
-    printf ("chars_left = %i, '%s'\n", chars_left, start);
+    DBG_INT_VAL (chars_left);
 
     // move memory from start to tail to buf
     // (remove converted parts, move remaining/not yet used memory to beginning of buffer)
     memmove (buf, start, chars_left + 1);
     *tail = buf + chars_left;
 
-    printf ("buf = '%s'\n", buf);
+    DBG_STR_VAL (buf);
 
 }

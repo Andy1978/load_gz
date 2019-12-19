@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <assert.h>
 
+#define DEBUG
 #include "parse_csv.h"
 
 #define INITIAL_ROWS 100

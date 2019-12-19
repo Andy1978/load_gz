@@ -11,54 +11,18 @@
 #endif
 
 #include <octave/ov-base.h>
-#include "parse_csv.h"
 
 /***********************    settings    ********************************/
 
-
+//#define DEBUG
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
 // BUFFER_SIZE has to be at least the maximum rowlength in bytes
 #define BUFFER_SIZE 10
 
-#define DEBUG
-
-/*************************     debugging     **************************/
-
-#ifdef DEBUG
-
-  #include <iomanip>
-
-  // a = first user defined parameter
-  // b = second user defined parameter
-
-  // example:
-  // DBG_MSG2 ("foo", 8);
-  // writes to stdout:
-  // save_json.cc:save_matrix   :113  foo 8
-
-  #define DBG_MSG2(a, b) std::cout << "DEBUG: "\
-                         << std::setw (15) << std::left\
-                         << __FILE__ << ":"\
-                         << std::setw (14) << __FUNCTION__ << ":"\
-                         << std::setw (4) << __LINE__ << " "\
-                         << a << " "\
-                         << b << std::endl;
-
-  #define DBG_MSG1(a) DBG_MSG2(a, "")
-
-  #define DBG_OUT(x) std::cout << "DEBUG: " << #x << " = " << x << std::endl;
-
-#else //No DEBUG defined
-
-  #define DBG_MSG2(a, b)
-  #define DBG_MSG1(a)
-  #define DBG_CALL(x)
-  #define DBG_OUT(x)
-
-#endif
-
 /************************  class load_gz  ******************************/
+
+#include "parse_csv.h"
 
 class load_gz : public octave_base_value
 {
@@ -81,7 +45,7 @@ public:
       current_col_idx (0),
       current_row_idx (0)
   {
-    DBG_MSG1 ("c'tor");
+    DBG_STR ("c'tor");
 
     gz_fn = fn;
     gz_fid = gzopen (gz_fn.c_str (), "r");
@@ -100,7 +64,7 @@ public:
 
   ~load_gz (void)
   {
-    DBG_MSG1 ("d'tor");
+    DBG_STR ("d'tor");
     free (buf);
     if (gz_fid)
       gzclose (gz_fid);
@@ -108,7 +72,7 @@ public:
 
   octave_base_value * clone (void)
   {
-    DBG_MSG1 ("");
+    DBG_STR ("");
     return new load_gz (*this);
   }
 
@@ -194,7 +158,7 @@ private:
   {
     if (gzeof (gz_fid))
       {
-        DBG_MSG1 ("gzclearerr (gz_fid)");
+        DBG_STR ("gzclearerr (gz_fid)");
         gzclearerr (gz_fid);
         return 0;
       }
@@ -203,7 +167,7 @@ private:
     tail = tail + bytes_read;
     *tail = 0;
 
-    DBG_OUT (bytes_read);
+    DBG_INT_VAL (bytes_read);
 
 //    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
 //      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
