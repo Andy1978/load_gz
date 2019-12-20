@@ -52,6 +52,7 @@ char isEOL (char c)
 
 void parse_csv (char *buf,
                 char** tail,
+                char flush,
                 char *in_comment,
                 int *current_row_idx,
                 int *current_col_idx,
@@ -65,10 +66,12 @@ void parse_csv (char *buf,
   char *start = buf;
   char *end = buf;
 
-  while (start < *tail)
+  //printf ("flush = %i\n", flush);
+  int min_len = (flush)? 1 : 10;
+
+  while ((*tail - start) > min_len)
     {
       //printf ("*start = %i = '%c', start = '%s'\n", *start, *start, start);
-
       if ((*current_col_idx == 0 && *start == '#') || *in_comment)
         {
           // new comment or already in "read comment" state
@@ -124,6 +127,8 @@ void parse_csv (char *buf,
           // start = '  ', d = 0.000000, end-start = 0, *end = 32 = ' '
           // Non-convertible at start
           // start = ';3.14', d = 0.000000, end-start = 0, *end = 59 = ';'
+          // Not finished expotential
+          // start = '9e', d = 9.000000, end-start = 1, *end = 101 = 'e'
 
           double d = strtod (start, &end);
 
@@ -134,7 +139,7 @@ void parse_csv (char *buf,
                 (*current_col_idx)++;
               start++;
             }
-          else if (end == *tail)
+          else if (! *end || *end == 'e' || *end == 'E' || *end == 'x' || *end == 'X')
             {
               DBG_STR ("possible premature end of conversion due to end of buffer");
               break;

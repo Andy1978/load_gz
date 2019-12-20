@@ -2,12 +2,12 @@
 
 # Sweep BUFFER_SIZE from 16..230
 
-for k in `seq 16 230`; do
-  echo "set BUFFER_SIZE to $k... "
-  sed -i "s/#define BUFFER_SIZE.*$/#define BUFFER_SIZE $k/" parse.c
-  make -s
-  ./parse sample1.csv > sample1.out
-  ./parse sample2.csv > sample2.out
-  md5sum -c md5sums.ref
+for k in `seq 20 230`; do
+  echo "Run parse with buffersize = $k..."
+  ./parse sample1.csv -b $k > sample1.out
+  ./parse sample2.csv -b $k > sample2.out
+  diff sample1.out sample1.ref
+  diff sample2.out sample2.ref
+  #md5sum -c md5sums.ref
 done
 

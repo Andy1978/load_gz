@@ -66,6 +66,7 @@ typedef void(*cb_new_comment)(void*, char append, char complete, const char* c);
 char isEOL (char c);
 void parse_csv (char *buf,
                 char** tail,
+                char flush,
                 char *in_comment,
                 int *current_row_idx,
                 int *current_col_idx,

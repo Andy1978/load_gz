@@ -221,10 +221,8 @@ private:
 //    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
 //      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
 
-    if (bytes_read > 0)
-      {
-        parse_csv (buf, &tail, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
-      }
+    parse_csv (buf, &tail, !bytes_read, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
+
     return bytes_read;
   }
 
