@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include "parse_csv.h"
 
-#define BUFFER_SIZE 230
+#define BUFFER_SIZE 17
 
 static char last_cb_was_comment = 1;
 
@@ -25,13 +25,10 @@ void new_value (void *p, int row, int col, double value)
 
   static int last_row = 0;
   if (row > last_row && !last_cb_was_comment)
-    {
-      assert (col == 0);
-      putchar ('\n');
-    }
+    putchar ('\n');
 
   if (col > 0)
-    putchar (' ');
+    putchar (';');
 
   printf ("%f", value);
   last_row = row;
