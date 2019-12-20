@@ -13,9 +13,7 @@
 #include <fcntl.h>
 #include "parse_csv.h"
 
-#define INITIAL_ROWS 100
-#define GROWTH_FACTOR 1.5
-#define BUFFER_SIZE 20
+#define BUFFER_SIZE 230
 
 static char last_cb_was_comment = 1;
 
@@ -27,7 +25,10 @@ void new_value (void *p, int row, int col, double value)
 
   static int last_row = 0;
   if (row > last_row && !last_cb_was_comment)
-    putchar ('\n');
+    {
+      assert (col == 0);
+      putchar ('\n');
+    }
 
   if (col > 0)
     putchar (' ');
@@ -38,6 +39,7 @@ void new_value (void *p, int row, int col, double value)
 }
 
 // callback is called if a (portion) of comment is parsed
+// c can be NULL
 void new_comment (void *p, char append, char complete, const char* c)
 {
   (void) p;
@@ -52,8 +54,21 @@ void new_comment (void *p, char append, char complete, const char* c)
   last_cb_was_comment = 1;
 }
 
+void test_strtod (const char* start)
+{
+  char* end;
+  double d = strtod (start, &end);
+  printf ("start = '%s', d = %f, end-start = %li, *end = %i = '%c'\n", start, d, end-start, *end, *end);
+}
+
 int main (int argc, char *argv[])
 {
+  //~ test_strtod ("1.23");
+  //~ test_strtod (" 2.34 ");
+  //~ test_strtod ("  ");
+  //~ test_strtod (";3.14");
+  //~ return 0;
+
   int fd = STDIN_FILENO;
   if (argc > 1)
     {

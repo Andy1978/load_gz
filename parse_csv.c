@@ -19,6 +19,10 @@
 */
 
 #include "parse_csv.h"
+#include <ctype.h>
+#include <string.h>
+#include <unistd.h>
+#include <assert.h>
 
 char isEOL (char c)
 {
@@ -63,18 +67,21 @@ void parse_csv (char *buf,
 
   while (start < *tail)
     {
-      if (*current_col_idx == 0 && (*start == '#' || *in_comment))
+      //printf ("*start = %i = '%c', start = '%s'\n", *start, *start, start);
+
+      if ((*current_col_idx == 0 && *start == '#') || *in_comment)
         {
           // new comment or already in "read comment" state
-          DBG_STR ("comment state");
+          DBG_INT_VAL (*in_comment);
 
           // find EOL
-          while (*(++end) && !isEOL (*end));
+          end = start;
+          while (*(end) && !isEOL (*end)) end++;
           DBG_LINT_VAL (end-buf);
 
           if (! *end) // no EOL found yet
             {
-              DBG_STR ("buffer ended before EOL");
+              DBG_STR ("parsing comment: buffer ended before EOL");
               new_comment (userdata, *in_comment, 0, start);
               *in_comment = 1;
               start = end;
@@ -84,58 +91,63 @@ void parse_csv (char *buf,
 
           // an EOL was found. Overwrite it with \0
           *end = 0;
+
           new_comment (userdata, *in_comment, 1, start);
           *in_comment = 0;
 
           // consume as much of EOL chars as possible
-          while (++end < *tail && isEOL (*end))
-            DBG_STR ("skip EOL");
+          //while (++end < *tail && isEOL (*end))
+          //  DBG_STR ("skip EOL");
 
-          start = end;
+          start = end + 1;
+        }
+      else if (isEOL (*start))
+        {
+          DBG_STR ("isEOL");
+          if (*current_col_idx > 0)
+            {
+              (*current_row_idx)++;
+              *current_col_idx = 0;
+            }
+          start++;
         }
       else  // "normal" string to double conversion
         {
           DBG_STR ("strtod");
+          //printf ("*start = %i = '%c', start = '%s'\n", *start, *start, start);
+
+          // normal case: (see test_strtod for tests)
+          // start = '1.23', d = 1.230000, end-start = 4, *end = 0 = ''
+          // whistepace at start is ignored:
+          // start = ' 2.34 ', d = 2.340000, end-start = 5, *end = 32 = ' '
+          // Only whitespace before end of buffer
+          // start = '  ', d = 0.000000, end-start = 0, *end = 32 = ' '
+          // Non-convertible at start
+          // start = ';3.14', d = 0.000000, end-start = 0, *end = 59 = ';'
+
           double d = strtod (start, &end);
 
           if (end == start)
             {
               DBG_STR ("no conversion was performed");
-              start = end + 1;
-
+              if (! isspace (*start))
+                (*current_col_idx)++;
+              start++;
             }
           else if (end == *tail)
             {
               DBG_STR ("possible premature end of conversion due to end of buffer");
               break;
             }
-          else
+          else // All fine, store value into mat
             {
-              // All fine, store value into mat
-#ifdef DEBUG
-              //printf ("All fine, store value '%f' into mat (%i, %i)\n", d, *current_row_idx, *current_col_idx);
-#endif
               new_value (userdata, *current_row_idx, *current_col_idx, d);
-              start = end + 1;
-            }
-
-          (*current_col_idx)++;
-
-          if (isEOL (*end))
-            {
-              (*current_row_idx)++;
-              *current_col_idx = 0;
-
-              // consume as much of EOL chars as possible
-              while (++end < *tail && isEOL (*end))
-                DBG_STR ("skip EOL");
-
               start = end;
+              if (! isEOL (*start))
+                start++;
+              (*current_col_idx)++;
             }
         }
-
-
-
     } // end while
 
   int chars_left = *tail - start;

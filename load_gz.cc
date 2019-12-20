@@ -36,8 +36,8 @@
 /***********************    settings    ********************************/
 #define INITIAL_ROWS 100
 #define GROWTH_FACTOR 1.5
-// BUFFER_SIZE should be at least >20 and >1000 for good performance
-#define BUFFER_SIZE 25
+// BUFFER_SIZE should be at least >20 and >500 for good performance
+#define BUFFER_SIZE 1000
 /************************  class load_gz  ******************************/
 
 #include "parse_csv.h"
@@ -336,7 +336,7 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 
 /*
 %!test
-%! m = rand (5e4, 8);
+%! m = rand (5e2, 8);
 %! fn = tempname();
 %! save ("-z", "-ascii", fn, "m")
 %! tic; ref = load (fn); t_load = toc()
