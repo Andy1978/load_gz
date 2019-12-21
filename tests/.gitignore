@@ -1,2 +1,3 @@
 parse_stdin
 sample.csv
+afl_out/

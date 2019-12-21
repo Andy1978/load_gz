@@ -9,7 +9,7 @@ unlink (fn);
 system (sprintf ('./inc_write "%s"', fn), [], "async");
 pause (0.1);
 
-x = load_gz (fn)
+x = load_gz (fn);
 
 assert_cnt = 0;
 for k=1:40

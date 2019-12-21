@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-char isEOL (char c)
+inline char isEOL (char c)
 {
   return c == 0x0A || c == 0x0D;
 }
