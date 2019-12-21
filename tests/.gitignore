@@ -1,3 +1,6 @@
-parse_stdin
-sample.csv
+parse
+afl_in/
 afl_out/
+rand_50x8.csv
+parse_afl
+*.out
