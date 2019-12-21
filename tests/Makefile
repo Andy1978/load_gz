@@ -21,14 +21,15 @@ inc_write: inc_write.c
 
 check: sample1.csv parse inc_write
 	$(OCT) --eval 'addpath ("../"); test load_gz'
-	$(OCT) parse_sample_csv.m
-	#./parse < sample1.csv > sample1.out
+	./parse < sample1.csv > sample1.out
 	./parse < sample2.csv > sample2.out
 	md5sum -c md5sums.ref
 
 benchmark: inc_write
 	$(OCT) inc_read.m
 
+sweep_buffer: parse
+	./sweep_buffer.sh
 
 ## spezial builds:
 parse.fuzz: parse.c ../parse_csv.c
@@ -38,7 +39,8 @@ parse.fuzz: parse.c ../parse_csv.c
 # https://fuzzing-project.org/tutorial1.html
 # http://caca.zoy.org/wiki/zzuf/tutorial1
 fuzz: parse.fuzz
-	zzuf -q -s 0:10000 -r 0.05 ./parse.fuzz sample1.csv
+	zzuf -q -s 0:5000 -r 0.05 ./parse.fuzz sample1.csv
+	zzuf -q -s 0:5000 -r 0.05 ./parse.fuzz sample2.csv
 
 style:
 	astyle --style=gnu -s2 -n *.c

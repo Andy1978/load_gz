@@ -104,17 +104,17 @@ int main (int argc, char *argv[])
     {
       option_index = -1;
       int c = getopt_long (argc, argv, "hVb:",
-                       long_options, &option_index);
+                           long_options, &option_index);
 
       /* Detect the end of the options. */
       if (c == -1)
         break;
 
       //~ if (option_index >= 0)
-        //~ printf ("Processing long option '%s'\n", long_options[option_index].name);
+      //~ printf ("Processing long option '%s'\n", long_options[option_index].name);
       //~ else if (c > 0)
-        //~ printf ("Processing short option '%c'\n", c);
-            
+      //~ printf ("Processing short option '%c'\n", c);
+
       switch (c)
         {
         case 0:

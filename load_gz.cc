@@ -116,7 +116,7 @@ public:
 
   Matrix matrix_value (bool = false)
   {
-    while (poll ());
+    poll ();
 
     if (current_row_idx > 0)
       return mat.extract (0, 0, current_row_idx - 1, mat.columns () - 1);
@@ -203,27 +203,29 @@ private:
       comments(comments.rows () - 1) = comments(comments.rows () - 1).string_value() + std::string (c);
   }
 
-  int poll ()
+  void poll ()
   {
     if (gzeof (gz_fid))
       {
         DBG_STR ("gzclearerr (gz_fid)");
         gzclearerr (gz_fid);
-        return 0;
       }
 
-    int bytes_read = gzread (gz_fid, tail, BUFFER_SIZE - (tail - buf) - 1);
-    tail = tail + bytes_read;
-    *tail = 0;
+    int bytes_read;
+    do
+      {
+        bytes_read = gzread (gz_fid, tail, BUFFER_SIZE - (tail - buf) - 1);
+        tail = tail + bytes_read;
+        *tail = 0;
 
-    DBG_INT_VAL (bytes_read);
+        DBG_INT_VAL (bytes_read);
 
 //    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
 //      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
 
-    parse_csv (buf, &tail, !bytes_read, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
-
-    return bytes_read;
+        parse_csv (buf, &tail, !bytes_read, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
+      }
+    while (bytes_read);
   }
 
   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
@@ -361,25 +363,31 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 %! fprintf (fid, "2.1255363456 3.123467384456 4.874443367876\r\n");
 %! fprintf (fid, "\r\n");
 %! fprintf (fid, "3.14156 2.718 40\r\n");
+%! fprintf (fid, ";5.45;6.78;9e3;\n");
+%! fprintf (fid, "4.12E4 0x5A 0xAFFE\n");
+%! fprintf (fid, "0X4.15p+2 3.24e-05 2.718\n");
 %! fclose (fid);
 %!
 %! x = load_gz (fn);
 %! m = mget (x);
 %!
-%! ref = [7 8.12 9.333;
-%!        1 2.3 4.5;
-%!        2 3.4 5.6;
-%!        10 20 30;
-%!        15 25 35.6;
-%!        2.1255363456 3.123467384456 4.874443367876;
-%!        3.14156 2.718 40];
+%! ref = [7 8.12 9.333 NA;
+%!       1 2.3 4.5 NA;
+%!       2 3.4 5.6 NA;
+%!       10 20 30 NA;
+%!       15 25 35.6 NA;
+%!       2.1255363456 3.123467384456 4.874443367876 NA;
+%!       3.14156 2.718 40 NA;
+%!       NA 5.45 6.78 9e3;
+%!       41200 90 45054 NA;
+%!       16.328125 0.0000324 2.718 NA];
 %!
 %! assert (m, ref);
 %!
 %! s = get (x);
 %! assert (s.fn, fn)
-%! assert (s.rows, 7)
-%! assert (s.columns, 3)
+%! assert (s.rows, 10)
+%! assert (s.columns, 4)
 %! assert (s.comments{1}, "# testing mixed delimiter and linebreaks")
 %! assert (s.comments{2}, "#")
 %! assert (s.comments{3}, "# CR linebreak (classic apple)")

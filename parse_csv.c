@@ -67,7 +67,7 @@ void parse_csv (char *buf,
   char *end = buf;
 
   //printf ("flush = %i\n", flush);
-  int min_len = (flush)? 1 : 10;
+  int min_len = (flush)? 0 : 10;
 
   while ((*tail - start) > min_len)
     {
