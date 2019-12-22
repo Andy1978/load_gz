@@ -51,7 +51,7 @@ If there are two non-convertible chars, the empty val (NA) is used.
 
     "4;;5;6" returns [4 NA 5 6]
 
-The CSV can have line comments starting with # and are returned with `get`
+The CSV can have line comments starting with # and are returned with `xget`
 
 
 ### Usage
@@ -61,7 +61,7 @@ The CSV can have line comments starting with # and are returned with `get`
 
 Get internals:
 
-	octave:> get(x)
+	octave:> xget(x)
 	ans =
 
 	  scalar structure containing the fields:

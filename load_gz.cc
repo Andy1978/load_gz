@@ -308,8 +308,8 @@ DEFUN_DLD (mget, args,,
   return retval;
 }
 
-DEFUN_DLD (get, args,,
-           "get (I)")
+DEFUN_DLD (xget, args,,
+           "xget (I)")
 {
   octave_value_list retval;
   if (args.length () != 1)
@@ -384,7 +384,7 @@ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (load_gz, "load_gz", "load_gz");
 %!
 %! assert (m, ref);
 %!
-%! s = get (x);
+%! s = xget (x);
 %! assert (s.fn, fn)
 %! assert (s.rows, 10)
 %! assert (s.columns, 4)
