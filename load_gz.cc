@@ -66,6 +66,10 @@ public:
     DBG_STR ("c'tor");
 
     gz_fn = fn;
+    /*
+     * FIXME: this doesn't work with ~ expansion which is normally done by SHELL
+     * See https://linux.die.net/man/3/wordexp
+     */
     gz_fid = gzopen (gz_fn.c_str (), "r");
     if (! gz_fid)
       error ("Opening '%s' failed", gz_fn.c_str ());
