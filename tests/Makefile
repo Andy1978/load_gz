@@ -6,7 +6,17 @@ OCT = octave -q --no-gui
 # Use ASAN
 CFLAGS = -Wall -Wextra -fsanitize=address -I../ -O0
 
-all: check benchmark sweep_buffer
+all:
+	@echo "No default target."
+	@echo ""
+	@echo "Available targets:"
+	@echo "  check        : run basic tests with ./parse"
+	@echo "  benchmark    : test incremental reads with load_gz.oct"
+	@echo "  sweep_buffer : test ./parse with different buffer sizes"
+	@echo "  zzuf         : fuzz ./parse with zzuf"
+	@echo "  afl          : fuzz ./parse with afl"
+	@echo "  style        : run astyle on source"
+	@echo "  clean        : you guess it..."
 
 rand_5e5x8.csv:
 	$(OCT) --eval "a = rand (5e5, 8); save (\"-ascii\", \"rand_5e5x8.csv\", \"a\");"
