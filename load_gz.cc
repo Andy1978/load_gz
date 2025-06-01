@@ -227,7 +227,8 @@ private:
 //    for (int k = 0; k < (head + bytes_read - buf + 1); ++k)
 //      printf ("DEBUG: buf[%i] = 0x%X = '%c'\n", k, buf[k], buf[k]);
 
-        parse_csv (buf, &tail, !bytes_read, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
+        char delimiter = 0;   // 0 = autodetect
+        parse_csv (buf, &tail, &delimiter, &in_comment, &current_row_idx, &current_col_idx, this, &cb_wrap_new_value, &cb_wrap_new_comment);
       }
     while (bytes_read);
   }

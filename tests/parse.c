@@ -94,7 +94,7 @@ int main (int argc, char *argv[])
   //~ test_strtod ("9e");
   //~ test_strtod ("8E");
   //~ test_strtod ("3.");
-  //~ test_strtod ("0x4.25p+2");
+  test_strtod ("0x4.25p+2");
   //~ test_strtod ("0x0.25");
   //~ return 0;
 
@@ -168,6 +168,7 @@ int main (int argc, char *argv[])
   int current_row_idx = 0;
   int current_col_idx = 0;
   char in_comment = 0;
+  char delimiter = ';';   // 0 = autodetect
 
   char *tail = 0;
   //printf ("buffersize = %i\n", buffer_size);
@@ -183,7 +184,7 @@ int main (int argc, char *argv[])
 #ifdef DEBUG
       printf ("bytes_read = %i, tail at %li\n", bytes_read, tail-buf);
 #endif
-      parse_csv (buf, &tail, !bytes_read, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
+      parse_csv (buf, &tail, &delimiter, &in_comment, &current_row_idx, &current_col_idx, 0, &new_value, &new_comment);
     }
   while (bytes_read);
   putchar ('\n');

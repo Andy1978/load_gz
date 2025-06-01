@@ -52,7 +52,7 @@ inline char isEOL (char c)
 
 void parse_csv (char *buf,
                 char** tail,
-                char flush,
+                char *delimiter,
                 char *in_comment,
                 int *current_row_idx,
                 int *current_col_idx,
@@ -66,10 +66,7 @@ void parse_csv (char *buf,
   char *start = buf;
   char *end = buf;
 
-  //printf ("flush = %i\n", flush);
-  int min_len = (flush)? 0 : 10;
-
-  while ((*tail - start) > min_len)
+  while (start < *tail)
     {
       //printf ("*start = %i = '%c', start = '%s'\n", *start, *start, start);
       if ((*current_col_idx == 0 && *start == '#') || *in_comment)
@@ -132,25 +129,39 @@ void parse_csv (char *buf,
 
           double d = strtod (start, &end);
 
-          if (end == start)
+          if (start == end)
             {
-              DBG_STR ("no conversion was performed");
+              // non-convertible at start or only whitespace until *tail
+              printf ("start==end, *start = '%c', start = '%s'\n", *start, start);
+
+//~ Wenn ich jetzt auf delimiter umstelle, stellt sich halt die Frage, wie ich mit
+//~ nicht-delimiter zeichen umgehe. Mit Error abbrechen?
+
               if (! isspace (*start))
                 (*current_col_idx)++;
               start++;
+
             }
-          else if (! *end || *end == 'e' || *end == 'E' || *end == 'x' || *end == 'X')
+          else if (! *end)
             {
               DBG_STR ("possible premature end of conversion due to end of buffer");
               break;
             }
-          else // All fine, store value into mat
+          else if (*end == *delimiter || isEOL (*end)) // All fine, store value into mat
             {
               new_value (userdata, *current_row_idx, *current_col_idx, d);
               start = end;
               if (! isEOL (*start))
                 start++;
               (*current_col_idx)++;
+            }
+          else
+            {
+              DBG_STR ("no conversion was performed");
+              if (! isspace (*start))
+                (*current_col_idx)++;
+              start++;
+              printf ("fooobar *end='%c'\n", *end);
             }
         }
     } // end while

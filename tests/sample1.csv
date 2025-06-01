@@ -1,13 +1,13 @@
 # testing mixed delimiter and linebreaks
 #
-7 8.12 9.333
-1;2.3,4.5
+7;8.12;9.333
+1;2.3;4.5
 
-2	3.4	5.6
-# CR linebreak (classic apple)10 20 3015 25 35.6# CR+LF linebreak (windoze)
-2.1255363456 3.123467384456 4.874443367876
+2;3.4;5.6
+# CR linebreak (classic apple)10;20;3015;25;35.6# CR+LF linebreak (windoze)
+2.1255363456;3.123467384456;4.874443367876
 
-3.14156 2.718 40
-;5.45;6.78;9e3;
-4.12E4 0x5A 0xAFFE
-0X4.15p+2 3.24e-05 2.718
+3.14156;2.718;40
+;5.45;6.78;9e3
+4.12E4;0x5A;0xAFFE
+0X4.15p+2;3.24e-05;2.718
