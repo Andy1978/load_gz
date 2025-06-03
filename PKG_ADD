@@ -1,2 +1,4 @@
-autoload ("mget", which ("load_gz.oct"));
-autoload ("xget", which ("load_gz.oct"));
+#autoload ("mget", which ("load_gz.oct"));
+#autoload ("xget", which ("load_gz.oct"));
+autoload ("mget", which ("load_xz.oct"));
+autoload ("xget", which ("load_xz.oct"));
